@@ -47,9 +47,6 @@ import org.opennms.core.utils.ConfigFileConstants;
 
 /**
  * <p>NotificationFactory class.</p>
- *
- * @author ranger
- * @version $Id: $
  */
 public class NotificationFactory extends NotificationManager {
     /**
@@ -127,20 +124,25 @@ public class NotificationFactory extends NotificationManager {
             m_lastModified = m_noticeConfFile.lastModified();
             parseXML(configIn);
         } finally {
-            if (configIn != null) {
-                IOUtils.closeQuietly(configIn);
-            }
+            IOUtils.closeQuietly(configIn);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void saveXML(String xmlString) throws IOException {
+    protected void saveXML(final String xmlString) throws IOException {
+        FileOutputStream os = null;
+        Writer fileWriter = null;
         if (xmlString != null) {
-            Writer fileWriter = new OutputStreamWriter(new FileOutputStream(m_noticeConfFile), "UTF-8");
-            fileWriter.write(xmlString);
-            fileWriter.flush();
-            fileWriter.close();
+            try {
+                os = new FileOutputStream(m_noticeConfFile);
+                fileWriter = new OutputStreamWriter(os, "UTF-8");
+                fileWriter.write(xmlString);
+                fileWriter.flush();
+            } finally {
+                IOUtils.closeQuietly(fileWriter);
+                IOUtils.closeQuietly(os);
+            }
         }
     }
 
@@ -152,7 +154,7 @@ public class NotificationFactory extends NotificationManager {
      * @throws org.exolab.castor.xml.ValidationException if any.
      */
     @Override
-    public void update() throws IOException, MarshalException, ValidationException {
+    public synchronized void update() throws IOException, MarshalException, ValidationException {
         if (m_lastModified != m_noticeConfFile.lastModified()) {
             reload();
         }
