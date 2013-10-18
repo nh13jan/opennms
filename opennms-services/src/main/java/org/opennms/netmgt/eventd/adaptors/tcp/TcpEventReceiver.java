@@ -47,6 +47,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
+
 /**
  * This class is the access point for the agents to hook into the event queue.
  * This fiber sets up an server socket that accepts incoming connections on the
@@ -61,9 +64,9 @@ import org.springframework.util.Assert;
  * @author <a href="http;//www.opennms.org">OpenNMS </a>
  */
 public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMBean {
-    
     private static final Logger LOG = LoggerFactory.getLogger(TcpEventReceiver.class);
-    
+    private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
+
     /**
      * The value that defines unlimited events per connection.
      */
@@ -132,7 +135,7 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * @param ipAddress TODO
      * @throws java.net.UnknownHostException if any.
      */
-    public TcpEventReceiver(int port, String ipAddress) throws UnknownHostException {
+    public TcpEventReceiver(final int port, final String ipAddress) throws UnknownHostException {
         m_eventHandlers = new ArrayList<EventHandler>(3);
         m_status = START_PENDING;
         m_tcpPort = port;
@@ -156,33 +159,39 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      *             thread cannot be started.
      */
     @Override
-    public synchronized void start() {
-        assertNotRunning();
-
-        m_status = STARTING;
-        try {
-            InetAddress address = "*".equals(m_ipAddress) ? null : InetAddressUtils.addr(m_ipAddress);
-            m_server = new TcpServer(this, m_eventHandlers, m_tcpPort, address);
-            if (m_logPrefix != null) {
-                m_server.setLogPrefix(m_logPrefix);
-            }
-            if (m_recsPerConn != UNLIMITED_EVENTS) {
-                m_server.setEventsPerConnection(m_recsPerConn);
-            }
-        } catch (IOException e) {
-            throw new UndeclaredThrowableException(e, "Error opening server socket: " + e);
-        }
-        m_worker = new Thread(m_server, "Event TCP Server[" + m_tcpPort + "]");
+    public void start() {
+        m_lock.writeLock().lock();
 
         try {
-            m_worker.start();
-        } catch (RuntimeException e) {
-            m_worker.interrupt();
-            m_status = STOPPED;
-            throw e;
-        }
+            assertNotRunning();
 
-        m_status = RUNNING;
+            m_status = STARTING;
+            try {
+                final InetAddress address = "*".equals(m_ipAddress) ? null : InetAddressUtils.addr(m_ipAddress);
+                m_server = new TcpServer(this, m_eventHandlers, m_tcpPort, address);
+                if (m_logPrefix != null) {
+                    m_server.setLogPrefix(m_logPrefix);
+                }
+                if (m_recsPerConn != UNLIMITED_EVENTS) {
+                    m_server.setEventsPerConnection(m_recsPerConn);
+                }
+            } catch (final IOException e) {
+                throw new UndeclaredThrowableException(e, "Error opening server socket: " + e);
+            }
+            m_worker = new Thread(m_server, "Event TCP Server[" + m_tcpPort + "]");
+
+            try {
+                m_worker.start();
+            } catch (final RuntimeException e) {
+                m_worker.interrupt();
+                m_status = STOPPED;
+                throw e;
+            }
+
+            m_status = RUNNING;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -191,27 +200,40 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * {@link java.lang.Thread#join joined}.
      */
     @Override
-    public synchronized void stop() {
-        if (m_status == STOPPED) {
-            return;
-        }
-        if (m_status == START_PENDING) {
-            m_status = STOPPED;
-            return;
-        }
+    public void stop() {
+        m_lock.updateLock().lock();
 
-        m_status = STOP_PENDING;
-
-        // Stop the main server thread then iterate over the connected threads
         try {
-            m_server.stop();
-        } catch (InterruptedException e) {
-            LOG.warn("Thread Interrupted while attempting to join server socket thread", e);
-        }
-        m_server = null;
-        m_worker = null;
+            if (m_status == STOPPED) {
+                return;
+            }
 
-        m_status = STOPPED;
+            m_lock.writeLock().lock();
+
+            try {
+                if (m_status == START_PENDING) {
+                    m_status = STOPPED;
+                    return;
+                }
+
+                m_status = STOP_PENDING;
+
+                // Stop the main server thread then iterate over the connected threads
+                try {
+                    m_server.stop();
+                } catch (InterruptedException e) {
+                    LOG.warn("Thread Interrupted while attempting to join server socket thread", e);
+                }
+                m_server = null;
+                m_worker = null;
+
+                m_status = STOPPED;
+            } finally {
+                m_lock.writeLock().unlock();
+            }
+        } finally {
+            m_lock.updateLock().unlock();
+        }
     }
 
     /**
@@ -221,7 +243,12 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      */
     @Override
     public String getName() {
-        return "Event TCP Receiver[" + m_tcpPort + "]";
+        m_lock.readLock().lock();
+        try {
+            return "Event TCP Receiver[" + m_tcpPort + "]";
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -231,7 +258,12 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      */
     @Override
     public int getStatus() {
-        return m_status;
+        m_lock.readLock().lock();
+        try {
+            return m_status;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -241,7 +273,12 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      */
     @Override
     public String getStatusText() {
-        return STATUS_NAMES[getStatus()];
+        m_lock.readLock().lock();
+        try {
+            return STATUS_NAMES[getStatus()];
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -277,11 +314,14 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * decoded event is passed to the handler.
      */
     @Override
-    public void addEventHandler(EventHandler handler) {
-        synchronized (m_eventHandlers) {
+    public void addEventHandler(final EventHandler handler) {
+        m_lock.writeLock().lock();
+        try {
             if (!m_eventHandlers.contains(handler)) {
                 m_eventHandlers.add(handler);
             }
+        } finally {
+            m_lock.writeLock().unlock();
         }
     }
 
@@ -293,9 +333,12 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * <code>equals()</code> inherieted from the <code>Object</code> class.
      */
     @Override
-    public void removeEventHandler(EventHandler handler) {
-        synchronized (m_eventHandlers) {
+    public void removeEventHandler(final EventHandler handler) {
+        m_lock.writeLock().lock();
+        try {
             m_eventHandlers.remove(handler);
+        } finally {
+            m_lock.writeLock().unlock();
         }
     }
 
@@ -305,7 +348,12 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * @return a {@link java.util.List} object.
      */
     public List<EventHandler> getEventHandlers() {
-        return m_eventHandlers;
+        m_lock.readLock().lock();
+        try {
+            return m_eventHandlers;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -313,8 +361,13 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      *
      * @param eventHandlers a {@link java.util.List} object.
      */
-    public void setEventHandlers(List<EventHandler> eventHandlers) {
-        m_eventHandlers = eventHandlers;
+    public void setEventHandlers(final List<EventHandler> eventHandlers) {
+        m_lock.writeLock().lock();
+        try {
+            m_eventHandlers = eventHandlers;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -323,7 +376,12 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * @return a {@link java.lang.String} object.
      */
     public String getIpAddress() {
-        return m_ipAddress;
+        m_lock.readLock().lock();
+        try {
+            return m_ipAddress;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -331,10 +389,14 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      *
      * @param ipAddress a {@link java.lang.String} object.
      */
-    public void setIpAddress(String ipAddress) {
-        assertNotRunning();
-        
-        m_ipAddress = ipAddress;
+    public void setIpAddress(final String ipAddress) {
+        m_lock.writeLock().lock();
+        try {
+            assertNotRunning();
+            m_ipAddress = ipAddress;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -344,33 +406,57 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      */
     @Override
     public Integer getPort() {
-        return m_tcpPort;
+        m_lock.readLock().lock();
+        try {
+            return m_tcpPort;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void setPort(final Integer port) {
-        assertNotRunning();
-        
-        m_tcpPort = port;
+        m_lock.writeLock().lock();
+        try {
+            assertNotRunning();
+            m_tcpPort = port;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void addEventHandler(String name) throws MalformedObjectNameException, InstanceNotFoundException {
-        addEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+    public void addEventHandler(final String name) throws MalformedObjectNameException, InstanceNotFoundException {
+        m_lock.writeLock().lock();
+        try {
+            addEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void removeEventHandler(String name) throws MalformedObjectNameException, InstanceNotFoundException {
-        removeEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+    public void removeEventHandler(final String name) throws MalformedObjectNameException, InstanceNotFoundException {
+        m_lock.writeLock().lock();
+        try {
+            removeEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void setLogPrefix(final String prefix) {
-        m_logPrefix = prefix;
+    public void setLogPrefix(final String prefix) {
+        m_lock.writeLock().lock();
+        try {
+            m_logPrefix = prefix;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -381,10 +467,14 @@ public final class TcpEventReceiver implements EventReceiver, TcpEventReceiverMB
      * terminated after an event receipt is generated, if one is required.
      */
     @Override
-    public synchronized void setEventsPerConnection(final Integer number) {
-        assertNotRunning();
-
-        m_recsPerConn = number.intValue();
+    public void setEventsPerConnection(final Integer number) {
+        m_lock.writeLock().lock();
+        try {
+            assertNotRunning();
+            m_recsPerConn = number.intValue();
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     private void assertNotRunning() {

@@ -47,6 +47,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
+
 /**
  * This class implements the User Datagram Protocol (UDP) event receiver. When
  * the an agent sends an event via UDP/IP the receiver will process the event
@@ -57,8 +60,8 @@ import org.springframework.util.Assert;
  * @author <a href="http://www.oculan.com">Oculan Corporation </a>
  */
 public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMBean {
-    
     private static final Logger LOG = LoggerFactory.getLogger(UdpEventReceiver.class);
+    private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
     
     /**
      * The default User Datagram Port for the receipt and transmission of
@@ -134,7 +137,7 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      * @param port a int.
      * @param ipAddress a {@link java.lang.String} object.
      */
-    public UdpEventReceiver(int port, String ipAddress) {
+    public UdpEventReceiver(final int port, final String ipAddress) {
         m_dgSock = null;
         m_ipAddress = ipAddress;
         m_dgPort = port;
@@ -156,74 +159,94 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      * <p>start</p>
      */
     @Override
-    public synchronized void start() {
-        assertNotRunning();
-
-        m_status = STARTING;
+    public void start() {
+        m_lock.writeLock().lock();
 
         try {
-            InetAddress address = "*".equals(m_ipAddress) ? null : InetAddressUtils.addr(m_ipAddress);
-            m_dgSock = new DatagramSocket(m_dgPort, address);
+            assertNotRunning();
 
-            m_receiver = new UdpReceiver(m_dgSock, m_eventsIn);
-            m_processor = new UdpProcessor(m_eventHandlers, m_eventsIn, m_eventUuidsOut);
-            m_output = new UdpUuidSender(m_dgSock, m_eventUuidsOut, m_eventHandlers);
-
-            if (m_logPrefix != null) {
-                m_receiver.setLogPrefix(m_logPrefix);
-                m_processor.setLogPrefix(m_logPrefix);
-                m_output.setLogPrefix(m_logPrefix);
+            m_status = STARTING;
+    
+            try {
+                final InetAddress address = "*".equals(m_ipAddress) ? null : InetAddressUtils.addr(m_ipAddress);
+                m_dgSock = new DatagramSocket(m_dgPort, address);
+    
+                m_receiver = new UdpReceiver(m_dgSock, m_eventsIn);
+                m_processor = new UdpProcessor(m_eventHandlers, m_eventsIn, m_eventUuidsOut);
+                m_output = new UdpUuidSender(m_dgSock, m_eventUuidsOut, m_eventHandlers);
+    
+                if (m_logPrefix != null) {
+                    m_receiver.setLogPrefix(m_logPrefix);
+                    m_processor.setLogPrefix(m_logPrefix);
+                    m_output.setLogPrefix(m_logPrefix);
+                }
+            } catch (final IOException e) {
+                throw new java.lang.reflect.UndeclaredThrowableException(e);
             }
-        } catch (IOException e) {
-            throw new java.lang.reflect.UndeclaredThrowableException(e);
+    
+            final Thread rThread = new Thread(m_receiver, "UDP Event Receiver[" + m_dgPort + "]");
+            final Thread pThread = new Thread(m_processor, "UDP Event Processor[" + m_dgPort + "]");
+            final Thread oThread = new Thread(m_output, "UDP UUID Sender[" + m_dgPort + "]");
+
+            try {
+                rThread.start();
+                pThread.start();
+                oThread.start();
+            } catch (RuntimeException e) {
+                rThread.interrupt();
+                pThread.interrupt();
+                oThread.interrupt();
+    
+                m_status = STOPPED;
+                
+                throw e;
+            }
+    
+            m_status = RUNNING;
+        } finally {
+            m_lock.writeLock().unlock();
         }
-
-        Thread rThread = new Thread(m_receiver, "UDP Event Receiver[" + m_dgPort + "]");
-        Thread pThread = new Thread(m_processor, "UDP Event Processor[" + m_dgPort + "]");
-        Thread oThread = new Thread(m_output, "UDP UUID Sender[" + m_dgPort + "]");
-        try {
-            rThread.start();
-            pThread.start();
-            oThread.start();
-        } catch (RuntimeException e) {
-            rThread.interrupt();
-            pThread.interrupt();
-            oThread.interrupt();
-
-            m_status = STOPPED;
-            
-            throw e;
-        }
-
-        m_status = RUNNING;
     }
 
     /**
      * <p>stop</p>
      */
     @Override
-    public synchronized void stop() {
-        if (m_status == STOPPED) {
-            return;
-        }
-        if (m_status == START_PENDING) {
-            m_status = STOPPED;
-            return;
-        }
-
-        m_status = STOP_PENDING;
-
+    public void stop() {
+        m_lock.updateLock().lock();
+        
         try {
-            m_receiver.stop();
-            m_processor.stop();
-            m_output.stop();
-        } catch (InterruptedException e) {
-            LOG.warn("The thread was interrupted while attempting to join sub-threads", e);
+            if (m_status == STOPPED) {
+                return;
+            }
+
+            m_lock.writeLock().lock();
+
+            try {
+                if (m_status == START_PENDING) {
+                    m_status = STOPPED;
+                    return;
+                }
+                
+                m_status = STOP_PENDING;
+        
+                try {
+                    m_receiver.stop();
+                    m_processor.stop();
+                    m_output.stop();
+                } catch (final InterruptedException e) {
+                    LOG.warn("The thread was interrupted while attempting to join sub-threads", e);
+                }
+
+                m_dgSock.close();
+
+                m_status = STOPPED;
+            } finally {
+                m_lock.writeLock().unlock();
+            }
+        } finally {
+            m_lock.updateLock().unlock();
         }
-
-        m_dgSock.close();
-
-        m_status = STOPPED;
     }
 
     /**
@@ -233,7 +256,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      */
     @Override
     public String getName() {
-        return "Event UDP Receiver[" + m_dgPort + "]";
+        m_lock.readLock().lock();
+        try {
+            return "Event UDP Receiver[" + m_dgPort + "]";
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -243,7 +271,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      */
     @Override
     public int getStatus() {
-        return m_status;
+        m_lock.readLock().lock();
+        try {
+            return m_status;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -253,7 +286,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      */
     @Override
     public String getStatusText() {
-        return STATUS_NAMES[getStatus()];
+        m_lock.readLock().lock();
+        try {
+            return STATUS_NAMES[getStatus()];
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -286,7 +324,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      * @return a {@link java.lang.String} object.
      */
     public String getIpAddress() {
-        return m_ipAddress;
+        m_lock.readLock().lock();
+        try {
+            return m_ipAddress;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -294,18 +337,26 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      *
      * @param ipAddress a {@link java.lang.String} object.
      */
-    public void setIpAddress(String ipAddress) {
-        assertNotRunning();
-        
-        m_ipAddress = ipAddress;
+    public void setIpAddress(final String ipAddress) {
+        m_lock.writeLock().lock();
+        try {
+            assertNotRunning();
+            m_ipAddress = ipAddress;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void setPort(Integer port) {
-        assertNotRunning();
-
-        m_dgPort = port.intValue();
+    public void setPort(final Integer port) {
+        m_lock.writeLock().lock();
+        try {
+            assertNotRunning();
+            m_dgPort = port.intValue();
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -315,7 +366,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      */
     @Override
     public Integer getPort() {
-        return m_dgPort;
+        m_lock.readLock().lock();
+        try {
+            return m_dgPort;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -325,11 +381,14 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      * decoded event is passed to the handler.
      */
     @Override
-    public void addEventHandler(EventHandler handler) {
-        synchronized (m_eventHandlers) {
+    public void addEventHandler(final EventHandler handler) {
+        m_lock.writeLock().lock();
+        try {
             if (!m_eventHandlers.contains(handler)) {
                 m_eventHandlers.add(handler);
             }
+        } finally {
+            m_lock.writeLock().unlock();
         }
     }
 
@@ -341,9 +400,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      * <code>equals()</code> inherieted from the <code>Object</code> class.
      */
     @Override
-    public void removeEventHandler(EventHandler handler) {
-        synchronized (m_eventHandlers) {
+    public void removeEventHandler(final EventHandler handler) {
+        m_lock.writeLock().lock();
+        try {
             m_eventHandlers.remove(handler);
+        } finally {
+            m_lock.writeLock().unlock();
         }
     }
 
@@ -353,7 +415,12 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      * @return a {@link java.util.List} object.
      */
     public List<EventHandler> getEventHandlers() {
-        return m_eventHandlers;
+        m_lock.readLock().lock();
+        try {
+            return m_eventHandlers;
+        } finally {
+            m_lock.readLock().unlock();
+        }
     }
 
     /**
@@ -361,26 +428,46 @@ public final class UdpEventReceiver implements EventReceiver, UdpEventReceiverMB
      *
      * @param eventHandlers a {@link java.util.List} object.
      */
-    public void setEventHandlers(List<EventHandler> eventHandlers) {
-        m_eventHandlers = eventHandlers;
+    public void setEventHandlers(final List<EventHandler> eventHandlers) {
+        m_lock.writeLock().lock();
+        try {
+            m_eventHandlers = eventHandlers;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void addEventHandler(String name) throws MalformedObjectNameException, InstanceNotFoundException {
-        addEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+    public void addEventHandler(final String name) throws MalformedObjectNameException, InstanceNotFoundException {
+        m_lock.writeLock().lock();
+        try {
+            addEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void removeEventHandler(String name) throws MalformedObjectNameException, InstanceNotFoundException {
-        removeEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+    public void removeEventHandler(final String name) throws MalformedObjectNameException, InstanceNotFoundException {
+        m_lock.writeLock().lock();
+        try {
+            removeEventHandler(new EventHandlerMBeanProxy(new ObjectName(name)));
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void setLogPrefix(final String prefix) {
-        m_logPrefix = prefix;
+    public void setLogPrefix(final String prefix) {
+        m_lock.writeLock().lock();
+        try {
+            m_logPrefix = prefix;
+        } finally {
+            m_lock.writeLock().unlock();
+        }
     }
     
     private void assertNotRunning() {

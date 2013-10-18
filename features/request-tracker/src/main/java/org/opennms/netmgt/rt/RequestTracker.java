@@ -96,7 +96,7 @@ public class RequestTracker {
     }
 
     public Long updateTicket(final Long id, final String content) throws RequestTrackerException {
-        HttpPost post = new HttpPost(m_baseURL + "/REST/1.0/ticket/" + id + "/edit");
+        final HttpPost post = new HttpPost(m_baseURL + "/REST/1.0/ticket/" + id + "/edit");
         return postEdit(post, content, TICKET_UPDATED_PATTERN);
     }
 
@@ -109,7 +109,7 @@ public class RequestTracker {
         params.add(new BasicNameValuePair("content", content));
 
         try {
-            UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, "UTF-8");
+            final UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, "UTF-8");
             post.setEntity(entity);
         } catch (final UnsupportedEncodingException e) {
             // Should never happen
@@ -118,7 +118,7 @@ public class RequestTracker {
 
         try {
             final HttpResponse response = getClient().execute(post);
-            int responseCode = response.getStatusLine().getStatusCode();
+            final int responseCode = response.getStatusLine().getStatusCode();
             if (responseCode != HttpStatus.SC_OK) {
                 throw new RequestTrackerException("Received a non-200 response code from the server: " + responseCode);
             } else {
@@ -151,7 +151,7 @@ public class RequestTracker {
 
         try {
             final HttpResponse response = getClient().execute(get);
-            int responseCode = response.getStatusLine().getStatusCode();
+            final int responseCode = response.getStatusLine().getStatusCode();
             if (responseCode != HttpStatus.SC_OK) {
                 throw new RequestTrackerException("Received a non-200 response code from the server: " + responseCode);
             } else {
@@ -180,9 +180,8 @@ public class RequestTracker {
 
         Map<String, String> attributes = getTicketAttributes(ticketId.toString());
 
-        RTTicket ticket = new RTTicket();
-        if (attributes == null)
-            throw new RequestTrackerException("received no ticket attributes back from RT");
+        final RTTicket ticket = new RTTicket();
+        if (attributes == null) throw new RequestTrackerException("received no ticket attributes back from RT");
         final String id = attributes.remove("id").replace("ticket/", "");
         if (id != null && id.length() > 0) {
             ticket.setId(Long.valueOf(id));
@@ -202,11 +201,11 @@ public class RequestTracker {
         }
 
         // We previously normalized to the new custom-field syntax, so no need to check here for the old
-        for (String bute : attributes.keySet()) {
-            String headerForm = bute + ": " + attributes.get(bute);
-            Matcher cfMatcher = NEW_CUSTOM_FIELD_PATTERN.matcher(headerForm);
+        for (final String bute : attributes.keySet()) {
+            final String headerForm = bute + ": " + attributes.get(bute);
+            final Matcher cfMatcher = NEW_CUSTOM_FIELD_PATTERN.matcher(headerForm);
             if (cfMatcher.matches()) {
-                CustomField cf = new CustomField(cfMatcher.group(1));
+                final CustomField cf = new CustomField(cfMatcher.group(1));
                 cf.addValue(new CustomFieldValue(cfMatcher.group(2)));
                 attributes.remove(bute);
             }
@@ -248,7 +247,7 @@ public class RequestTracker {
 
         try {
             final HttpResponse response = getClient().execute(get);
-            int responseCode = response.getStatusLine().getStatusCode();
+            final int responseCode = response.getStatusLine().getStatusCode();
             if (responseCode != HttpStatus.SC_OK) {
                 throw new RequestTrackerException("Received a non-200 response code from the server: " + responseCode);
             } else {
@@ -346,7 +345,7 @@ public class RequestTracker {
 
         try {
             final HttpResponse response = getClient().execute(get);
-            int responseCode = response.getStatusLine().getStatusCode();
+            final int responseCode = response.getStatusLine().getStatusCode();
             if (responseCode != HttpStatus.SC_OK) {
                 throw new RequestTrackerException("Received a non-200 response code from the server: " + responseCode);
             } else {
@@ -393,7 +392,7 @@ public class RequestTracker {
 
         try {
             final HttpResponse response = getClient().execute(get);
-            int responseCode = response.getStatusLine().getStatusCode();
+            final int responseCode = response.getStatusLine().getStatusCode();
             if (responseCode != HttpStatus.SC_OK) {
                 throw new RequestTrackerException("Received a non-200 response code from the server: " + responseCode);
             } else {
@@ -487,7 +486,7 @@ public class RequestTracker {
         if (m_client == null) {
             m_client = new DefaultHttpClient();
 
-            HttpParams clientParams = m_client.getParams();
+            final HttpParams clientParams = m_client.getParams();
             clientParams.setIntParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, m_timeout);
             clientParams.setIntParameter(CoreConnectionPNames.SO_TIMEOUT, m_timeout);
             clientParams.setParameter(ClientPNames.COOKIE_POLICY, CookiePolicy.BROWSER_COMPATIBILITY);
