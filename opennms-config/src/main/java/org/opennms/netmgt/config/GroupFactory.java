@@ -91,12 +91,10 @@ public class GroupFactory extends GroupManager {
      * @throws org.exolab.castor.xml.ValidationException if any.
      */
     public static synchronized void init() throws IOException, FileNotFoundException, MarshalException, ValidationException {
-
         if (s_instance == null || !s_initialized) {
             s_instance = new GroupFactory();
             s_initialized = true;
         }
-
     }
 
     /**
@@ -128,8 +126,7 @@ public class GroupFactory extends GroupManager {
      * @throws org.exolab.castor.xml.ValidationException if any.
      */
     public synchronized void reload() throws IOException, FileNotFoundException, MarshalException, ValidationException {
-        File confFile = ConfigFileConstants.getFile(ConfigFileConstants.GROUPS_CONF_FILE_NAME);
-
+        final File confFile = ConfigFileConstants.getFile(ConfigFileConstants.GROUPS_CONF_FILE_NAME);
         reloadFromFile(confFile);
     }
 
@@ -147,20 +144,25 @@ public class GroupFactory extends GroupManager {
             m_lastModified = m_groupsConfFile.lastModified();
             parseXml(configIn);
         } finally {
-            if (configIn != null) {
-                IOUtils.closeQuietly(configIn);
-            }
+            IOUtils.closeQuietly(configIn);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void saveXml(String data) throws IOException {
-        if (data != null) {
-            Writer fileWriter = new OutputStreamWriter(new FileOutputStream(m_groupsConfFile), "UTF-8");
-            fileWriter.write(data);
-            fileWriter.flush();
-            fileWriter.close();
+    protected void saveXml(final String data) throws IOException {
+        FileOutputStream os = null;
+        Writer fileWriter = null;
+        try {
+            if (data != null) {
+                os = new FileOutputStream(m_groupsConfFile);
+                fileWriter = new OutputStreamWriter(os, "UTF-8");
+                fileWriter.write(data);
+                fileWriter.flush();
+            }
+        } finally {
+            IOUtils.closeQuietly(fileWriter);
+            IOUtils.closeQuietly(os);
         }
     }
 

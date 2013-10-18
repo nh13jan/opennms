@@ -38,12 +38,9 @@ import java.util.List;
 // TODO make this implement Collection
 /**
  * <p>TimeIntervalSequence class.</p>
- *
- * @author ranger
- * @version $Id: $
  */
-public abstract class AbstractTimeIntervalSequence<T extends TimeInterval> {
-    
+public abstract class AbstractTimeIntervalSequence<T extends TimeInterval> implements Iterable<T> {
+
     private static class TimeIntervalSeqIter<T extends TimeInterval> implements Iterator<T> {
 
         private AbstractTimeIntervalSequence<T> m_current;
