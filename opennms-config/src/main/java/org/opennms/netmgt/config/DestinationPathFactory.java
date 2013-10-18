@@ -37,15 +37,13 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
+import org.apache.commons.io.IOUtils;
 import org.exolab.castor.xml.MarshalException;
 import org.exolab.castor.xml.ValidationException;
 import org.opennms.core.utils.ConfigFileConstants;
 
 /**
  * <p>DestinationPathFactory class.</p>
- *
- * @author ranger
- * @version $Id: $
  */
 public class DestinationPathFactory extends DestinationPathManager {
     /**
@@ -114,21 +112,32 @@ public class DestinationPathFactory extends DestinationPathManager {
     public void reload() throws IOException, FileNotFoundException, MarshalException, ValidationException {
         m_pathsConfFile = ConfigFileConstants.getFile(ConfigFileConstants.DESTINATION_PATHS_CONF_FILE_NAME);
 
-        InputStream configIn = new FileInputStream(m_pathsConfFile);
-        m_lastModified = m_pathsConfFile.lastModified();
-
-        parseXML(configIn);
-        configIn.close();
+        InputStream configIn = null;
+        try {
+            configIn = new FileInputStream(m_pathsConfFile);
+            m_lastModified = m_pathsConfFile.lastModified();
+    
+            parseXML(configIn);
+        } finally {
+            IOUtils.closeQuietly(configIn);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void saveXML(String writerString) throws IOException {
+    protected void saveXML(final String writerString) throws IOException {
         if (writerString != null) {
-            Writer fileWriter = new OutputStreamWriter(new FileOutputStream(m_pathsConfFile), "UTF-8");
-            fileWriter.write(writerString);
-            fileWriter.flush();
-            fileWriter.close();
+            FileOutputStream os = null;
+            Writer fileWriter = null;
+            try {
+                os = new FileOutputStream(m_pathsConfFile);
+                fileWriter = new OutputStreamWriter(os, "UTF-8");
+                fileWriter.write(writerString);
+                fileWriter.flush();
+            } finally {
+                IOUtils.closeQuietly(fileWriter);
+                IOUtils.closeQuietly(os);
+            }
         }
     }
 
