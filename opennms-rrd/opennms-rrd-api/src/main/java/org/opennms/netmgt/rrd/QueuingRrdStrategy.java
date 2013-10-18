@@ -199,7 +199,7 @@ public class QueuingRrdStrategy implements RrdStrategy<QueuingRrdStrategy.Create
      *
      * @return a boolean.
      */
-    public boolean prioritizeSignificantUpdates() {
+    public synchronized boolean prioritizeSignificantUpdates() {
         return m_prioritizeSignificantUpdates;
     }
 
@@ -208,8 +208,7 @@ public class QueuingRrdStrategy implements RrdStrategy<QueuingRrdStrategy.Create
      *
      * @param prioritizeSignificantUpdates a boolean.
      */
-    public void setPrioritizeSignificantUpdates(
-            boolean prioritizeSignificantUpdates) {
+    public synchronized void setPrioritizeSignificantUpdates(final boolean prioritizeSignificantUpdates) {
         m_prioritizeSignificantUpdates = prioritizeSignificantUpdates;
     }
 
