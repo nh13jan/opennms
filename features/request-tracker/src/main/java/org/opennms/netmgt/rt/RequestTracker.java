@@ -64,27 +64,23 @@ import org.slf4j.LoggerFactory;
 
 public class RequestTracker {
     private static final Logger LOG = LoggerFactory.getLogger(RequestTracker.class);
+
+    private static final Pattern IN_TOKENS_PATTERN        = Pattern.compile("^(\\w+):\\s*(.*?)\\s*$", Pattern.MULTILINE);
+    private static final Pattern TICKET_CREATED_PATTERN   = Pattern.compile("(?s) Ticket (\\d+) created");
+    private static final Pattern TICKET_UPDATED_PATTERN   = Pattern.compile("(?s) Ticket (\\d+) updated");
+    private static final Pattern OLD_CUSTOM_FIELD_PATTERN = Pattern.compile("^C(?:ustom)?F(?:ield)?-(.*?):\\s*(.*?)\\s*$");
+    private static final Pattern NEW_CUSTOM_FIELD_PATTERN = Pattern.compile("^CF\\.\\{(.*?)\\}:\\s*(.*?)\\s*$");
+
     private final String m_baseURL;
 
     private String m_user;
-
     private String m_password;
 
     private int m_timeout;
-
     private int m_retries;
 
-    private Pattern m_inTokensPattern = Pattern.compile("^(\\w+):\\s*(.*?)\\s*$", Pattern.MULTILINE);
-
-    private Pattern m_ticketCreatedPattern = Pattern.compile("(?s) Ticket (\\d+) created");
-
-    private Pattern m_ticketUpdatedPattern = Pattern.compile("(?s) Ticket (\\d+) updated");
-
-    private Pattern m_customFieldPatternOld = Pattern.compile("^C(?:ustom)?F(?:ield)?-(.*?):\\s*(.*?)\\s*$");
-
-    private Pattern m_customFieldPatternNew = Pattern.compile("^CF\\.\\{(.*?)\\}:\\s*(.*?)\\s*$");
-
     private DefaultHttpClient m_client;
+    private boolean m_sessionInitialized = false;
 
     public RequestTracker(final String baseURL, final String username, final String password, int timeout, int retries) {
         m_baseURL = baseURL;
@@ -96,12 +92,12 @@ public class RequestTracker {
 
     public Long createTicket(final RTTicket ticket) throws RequestTrackerException {
         final HttpPost post = new HttpPost(m_baseURL + "/REST/1.0/edit");
-        return postEdit(post, ticket.toContent(), m_ticketCreatedPattern);
+        return postEdit(post, ticket.toContent(), TICKET_CREATED_PATTERN);
     }
 
     public Long updateTicket(final Long id, final String content) throws RequestTrackerException {
         HttpPost post = new HttpPost(m_baseURL + "/REST/1.0/ticket/" + id + "/edit");
-        return postEdit(post, content, m_ticketUpdatedPattern);
+        return postEdit(post, content, TICKET_UPDATED_PATTERN);
     }
 
     public Long postEdit(final HttpPost post, final String content, final Pattern pattern) throws RequestTrackerException {
@@ -147,7 +143,7 @@ public class RequestTracker {
     }
 
     public RTUser getUserInfo(final String username) {
-        getSession();
+        ensureSession();
 
         Map<String, String> attributes = Collections.emptyMap();
 
@@ -180,7 +176,7 @@ public class RequestTracker {
     }
 
     public RTTicket getTicket(final Long ticketId, boolean getTextAttachment) throws RequestTrackerException {
-        getSession();
+        ensureSession();
 
         Map<String, String> attributes = getTicketAttributes(ticketId.toString());
 
@@ -208,7 +204,7 @@ public class RequestTracker {
         // We previously normalized to the new custom-field syntax, so no need to check here for the old
         for (String bute : attributes.keySet()) {
             String headerForm = bute + ": " + attributes.get(bute);
-            Matcher cfMatcher = m_customFieldPatternNew.matcher(headerForm);
+            Matcher cfMatcher = NEW_CUSTOM_FIELD_PATTERN.matcher(headerForm);
             if (cfMatcher.matches()) {
                 CustomField cf = new CustomField(cfMatcher.group(1));
                 cf.addValue(new CustomFieldValue(cfMatcher.group(2)));
@@ -223,7 +219,7 @@ public class RequestTracker {
         if (ticket.getText() == null || ticket.getText().equals("") && getTextAttachment) {
             attributes = getTicketAttributes(ticketId + "/attachments");
             if (attributes.containsKey("attachments")) {
-                final Matcher matcher = m_inTokensPattern.matcher(attributes.get("attachments"));
+                final Matcher matcher = IN_TOKENS_PATTERN.matcher(attributes.get("attachments"));
                 matcher.find();
                 final String attachmentId = matcher.group(1);
                 if (attachmentId != null && !"".equals(attachmentId)) {
@@ -239,7 +235,7 @@ public class RequestTracker {
     }
 
     public List<RTTicket> getTicketsForQueue(final String queueName, long limit) {
-        getSession();
+        ensureSession();
 
         final List<NameValuePair> params = new ArrayList<NameValuePair>();
         params.add(new BasicNameValuePair("query", "Queue='" + queueName + "' AND Status='open'"));
@@ -316,7 +312,7 @@ public class RequestTracker {
             throw new RequestTrackerException("User name cannot be null.");
         }
 
-        getSession();
+        ensureSession();
 
         final List<RTQueue> queues = new ArrayList<RTQueue>();
 
@@ -342,7 +338,7 @@ public class RequestTracker {
     }
 
     public RTQueue getQueue(long id) throws RequestTrackerException {
-        getSession();
+        ensureSession();
 
         Map<String, String> attributes = Collections.emptyMap();
 
@@ -392,8 +388,6 @@ public class RequestTracker {
 
         }
 
-        getSession();
-
         Map<String,String> ticketAttributes = Collections.emptyMap();
         final HttpGet get = new HttpGet(m_baseURL + "/REST/1.0/ticket/" + ticketQuery);
 
@@ -413,7 +407,7 @@ public class RequestTracker {
         }
 
         if (ticketAttributes.size() == 0) {
-            LOG.debug("matcher did not match {}", m_inTokensPattern.pattern());
+            LOG.debug("matcher did not match {}", IN_TOKENS_PATTERN.pattern());
             return null;
         }
         return ticketAttributes;
@@ -433,9 +427,9 @@ public class RequestTracker {
                 final String value = ticketAttributes.get(lastKey) + "\n" + line.replaceFirst("^" + lastIndent, "");
                 ticketAttributes.put(lastKey, value);
             } else {
-                final Matcher inTokensMatcher = m_inTokensPattern.matcher(line);
-                final Matcher cfMatcherOld = m_customFieldPatternOld.matcher(line);
-                final Matcher cfMatcherNew = m_customFieldPatternNew.matcher(line);
+                final Matcher inTokensMatcher = IN_TOKENS_PATTERN.matcher(line);
+                final Matcher cfMatcherOld = OLD_CUSTOM_FIELD_PATTERN.matcher(line);
+                final Matcher cfMatcherNew = NEW_CUSTOM_FIELD_PATTERN.matcher(line);
                 if (inTokensMatcher.matches()) {
                     if (cfMatcherOld.matches()) {
                         lastKey = "CF.{" + cfMatcherOld.group(1) + "}"; 
@@ -454,8 +448,8 @@ public class RequestTracker {
         return ticketAttributes;
     }
 
-    private void getSession() {
-        if (m_client == null) {
+    private void ensureSession() {
+        if (!m_sessionInitialized) {
             // we need to log in at least once with a POST method before we can do any GETs so we get a session cookie
 
             final HttpPost post = new HttpPost(m_baseURL + "/REST/1.0/user/" + m_user);
@@ -464,7 +458,7 @@ public class RequestTracker {
             params.add(new BasicNameValuePair("pass", m_password));
 
             try {
-                UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, "UTF-8");
+                final UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, "UTF-8");
                 post.setEntity(entity);
             } catch (final UnsupportedEncodingException e) {
                 // Should never happen
@@ -473,7 +467,7 @@ public class RequestTracker {
 
             try {
                 final HttpResponse response = getClient().execute(post);
-                int responseCode = response.getStatusLine().getStatusCode();
+                final int responseCode = response.getStatusLine().getStatusCode();
                 if (responseCode != HttpStatus.SC_OK) {
                     throw new RequestTrackerException("Received a non-200 response code from the server: " + responseCode);
                 } else {
@@ -481,6 +475,7 @@ public class RequestTracker {
                         EntityUtils.consume(response.getEntity());
                     }
                     LOG.warn("got user session for username: {}", m_user);
+                    m_sessionInitialized = true;
                 }
             } catch (final Exception e) {
                 LOG.warn("Unable to get session (by requesting user details)", e);
