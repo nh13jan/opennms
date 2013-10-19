@@ -42,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
 import org.exolab.castor.xml.MarshalException;
@@ -203,18 +204,21 @@ public abstract class GroupManager {
     }
 
     public OnmsGroupList getOnmsGroupList() throws MarshalException, ValidationException, IOException {
-        m_lock.updateLock().lock();
+        final Map<String, Group> groups = getGroups();
+
+        m_lock.readLock().lock();
         try {
-            return new OnmsGroupListMapper().map(new OnmsGroupMapper().map(getGroups().values()));
+            return new OnmsGroupListMapper().map(new OnmsGroupMapper().map(groups.values()));
         } finally {
-            m_lock.updateLock().unlock();
+            m_lock.readLock().unlock();
         }
     }
 
     public OnmsGroup getOnmsGroup(final String groupName) throws MarshalException, ValidationException, IOException {
+        final Group castorGroup = getGroup(groupName);
+
         m_lock.updateLock().lock();
         try {
-            final Group castorGroup = getGroup(groupName);
             if (castorGroup == null) return null;
             return new OnmsGroupMapper().map(castorGroup);
         } finally {
@@ -223,9 +227,10 @@ public abstract class GroupManager {
     }
 
     public void save(final OnmsGroup group) throws Exception {
+        Group castorGroup = getGroup(group.getName());
+
         m_lock.writeLock().lock();
         try {
-            Group castorGroup = getGroup(group.getName());
             if (castorGroup == null) {
                 castorGroup = new Group();
                 castorGroup.setName(group.getName());
@@ -691,7 +696,8 @@ public abstract class GroupManager {
     public String[] getRoleNames() {
         m_lock.readLock().lock();
         try {
-            return (String[]) m_roles.keySet().toArray(new String[m_roles.keySet().size()]);
+            final Set<String> keys = m_roles.keySet();
+            return keys.toArray(new String[keys.size()]);
         } finally {
             m_lock.readLock().unlock();
         }
@@ -738,10 +744,11 @@ public abstract class GroupManager {
      */
     public boolean userHasRole(final String userId, final String roleid) throws MarshalException, ValidationException, IOException {
         update();
+        final Role role = getRole(roleid);
 
         m_lock.readLock().lock();
         try {
-            for (final Schedule sched : getRole(roleid).getScheduleCollection()) {
+            for (final Schedule sched : role.getScheduleCollection()) {
                 if (userId.equals(sched.getName())) {
                     return true;
                 }
@@ -764,11 +771,12 @@ public abstract class GroupManager {
      */
     public List<Schedule> getSchedulesForRoleAt(final String roleId, final Date time) throws MarshalException, ValidationException, IOException {
         update();
+        final Role role = getRole(roleId);
 
         m_lock.readLock().lock();
         try {
             final List<Schedule> schedules = new ArrayList<Schedule>();
-            for (final Schedule sched : getRole(roleId).getScheduleCollection()) {
+            for (final Schedule sched : role.getScheduleCollection()) {
                 if (BasicScheduleUtils.isTimeInSchedule(time, BasicScheduleUtils.getGroupSchedule(sched))) {
                     schedules.add(sched);
                 }
@@ -791,11 +799,12 @@ public abstract class GroupManager {
      */
     public List<Schedule> getUserSchedulesForRole(final String userId, final String roleId) throws MarshalException, ValidationException, IOException {
         update();
+        final Role role = getRole(roleId);
 
         m_lock.readLock().lock();
         try {
             final List<Schedule> scheds = new ArrayList<Schedule>();
-            for (final Schedule sched : getRole(roleId).getScheduleCollection()) {
+            for (final Schedule sched : role.getScheduleCollection()) {
                 if (userId.equals(sched.getName())) {
                     scheds.add(sched);
                 }
@@ -819,17 +828,18 @@ public abstract class GroupManager {
      */
     public boolean isUserScheduledForRole(final String userId, final String roleId, final Date time) throws MarshalException, ValidationException, IOException {
         update();
+        final Role role = getRole(roleId);
+        final List<Schedule> userSchedules = getUserSchedulesForRole(userId, roleId);
 
-        m_lock.updateLock().lock();
+        m_lock.readLock().lock();
         try {
-            for (final Schedule sched : getUserSchedulesForRole(userId, roleId)) {
+            for (final Schedule sched : userSchedules) {
                 if (BasicScheduleUtils.isTimeInSchedule(time, BasicScheduleUtils.getGroupSchedule(sched))) {
                     return true;
                 }
             }
     
             // if no user is scheduled then the supervisor is schedule by default 
-            final Role role = getRole(roleId);
             if (userId.equals(role.getSupervisor())) {
                 for (final Schedule sched : role.getScheduleCollection()) {
                     if (BasicScheduleUtils.isTimeInSchedule(time, BasicScheduleUtils.getGroupSchedule(sched))) {
@@ -841,7 +851,7 @@ public abstract class GroupManager {
             }
             return false;
         } finally {
-            m_lock.updateLock().unlock();
+            m_lock.readLock().unlock();
         }
     }
 
@@ -858,11 +868,10 @@ public abstract class GroupManager {
      */
     public OwnedIntervalSequence getRoleScheduleEntries(final String roleid, final Date start, final Date end) throws MarshalException, ValidationException, IOException {
         update();
+        final Role role = getRole(roleid);
 
         m_lock.updateLock().lock();
         try {
-            final Role role = getRole(roleid);
-
             final OwnedIntervalSequence schedEntries = new OwnedIntervalSequence();
             for (int i = 0; i < role.getScheduleCount(); i++) {
                 final Schedule sched = (Schedule) role.getSchedule(i);
