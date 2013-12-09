@@ -51,7 +51,7 @@ import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
  */
 abstract public class PollOutagesConfigManager extends AbstractJaxbConfigDao<Outages, Outages> implements PollOutagesConfig {
     private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
-    
+
     public PollOutagesConfigManager() {
         super(Outages.class, "poll outage configuration");
     }
@@ -59,7 +59,7 @@ abstract public class PollOutagesConfigManager extends AbstractJaxbConfigDao<Out
     public Lock getReadLock() {
         return m_lock.updateLock();
     }
-    
+
     public Lock getWriteLock() {
         return m_lock.writeLock();
     }
@@ -73,7 +73,7 @@ abstract public class PollOutagesConfigManager extends AbstractJaxbConfigDao<Out
          * programmaticStoreConfigResource (if needed).
          */
         Assert.state(getConfigResource() != null, "property configResource must be set and be non-null");
-        
+
         super.afterPropertiesSet();
     }
 
@@ -81,7 +81,7 @@ abstract public class PollOutagesConfigManager extends AbstractJaxbConfigDao<Out
     protected Outages translateConfig(final Outages outages) {
         return outages;
     }
-    
+
 
     /**
      * <p>getConfig</p>
@@ -389,7 +389,7 @@ abstract public class PollOutagesConfigManager extends AbstractJaxbConfigDao<Out
         return BasicScheduleUtils.getEndOfSchedule(BasicScheduleUtils.getBasicOutageSchedule(out));
     }
 
-	/**
+    /**
      * <p>
      * Return if nodeid is part of specified outage
      * </p>

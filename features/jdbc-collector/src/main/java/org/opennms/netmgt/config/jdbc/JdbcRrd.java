@@ -45,12 +45,12 @@ public class JdbcRrd implements Serializable, Comparable<JdbcRrd> {
 
     @XmlAttribute(name="step")
     private Integer m_step;
-    
+
     @XmlElement(name="rra")
     private List<String> m_jdbcRras = new ArrayList<String>();
-    
+
     public JdbcRrd() {
-        
+
     }
 
     @XmlTransient
@@ -70,21 +70,21 @@ public class JdbcRrd implements Serializable, Comparable<JdbcRrd> {
     public void setJdbcRras(List<String> jdbcRras) {
         m_jdbcRras = jdbcRras;
     }
-    
+
     public void addRra(String rra) {
         m_jdbcRras.add(rra);
     }
-    
+
     public void removeRra(String rra) {
         m_jdbcRras.remove(rra);
     }
-    
+
     @Override
     public int compareTo(JdbcRrd obj) {
         return new CompareToBuilder()
-            .append(getStep(), obj.getStep())
-            .append(getJdbcRras().toArray(), obj.getJdbcRras().toArray())
-            .toComparison();
+        .append(getStep(), obj.getStep())
+        .append(getJdbcRras().toArray(), obj.getJdbcRras().toArray())
+        .toComparison();
     }
 
     @Override
@@ -114,5 +114,5 @@ public class JdbcRrd implements Serializable, Comparable<JdbcRrd> {
         }
         return true;
     }
-    
+
 }

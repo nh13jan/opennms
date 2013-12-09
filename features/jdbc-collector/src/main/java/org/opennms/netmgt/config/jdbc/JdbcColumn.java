@@ -42,44 +42,44 @@ public class JdbcColumn implements Serializable, Comparable<JdbcColumn> {
 
     @XmlAttribute(name="name", required=true)
     private String m_columnName;
-    
+
     @XmlAttribute(name="data-source-name", required=false)
     private String m_dataSourceName;
-    
+
     @XmlAttribute(name="type", required=true)    
     private String m_dataType;
-    
+
     @XmlAttribute(name="alias", required=true)
     private String m_alias;
-    
+
     @XmlTransient
     public String getColumnName() {
         return m_columnName;
     }
-    
+
     public void setColumnName(String columnName) {
         m_columnName = columnName;
     }
-    
+
     @XmlTransient
     public String getDataSourceName() {
         return m_dataSourceName;
     }
-    
+
     public void setDataSourceName(String dataSourceName) {
         m_dataSourceName = dataSourceName;
     }
-    
+
     @XmlTransient
     public String getDataType() {
         return m_dataType;
     }
-    
+
     public void setDataType(String dataType) {
         m_dataType = dataType;
     }
-    
-    
+
+
     @XmlTransient
     public String getAlias() {
         return m_alias;
@@ -92,11 +92,11 @@ public class JdbcColumn implements Serializable, Comparable<JdbcColumn> {
     @Override
     public int compareTo(JdbcColumn obj) {
         return new CompareToBuilder()
-            .append(getColumnName(), obj.getColumnName())
-            .append(getDataSourceName(), obj.getDataSourceName())
-            .append(getDataType(), obj.getDataType())
-            .append(getAlias(), obj.getAlias())
-            .toComparison();
+        .append(getColumnName(), obj.getColumnName())
+        .append(getDataSourceName(), obj.getDataSourceName())
+        .append(getDataType(), obj.getDataType())
+        .append(getAlias(), obj.getAlias())
+        .toComparison();
     }
 
     @Override
@@ -138,5 +138,5 @@ public class JdbcColumn implements Serializable, Comparable<JdbcColumn> {
         }
         return true;
     }
-    
+
 }

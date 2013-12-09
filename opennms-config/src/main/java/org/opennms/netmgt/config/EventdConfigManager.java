@@ -68,7 +68,7 @@ public class EventdConfigManager {
         m_config = CastorUtils.unmarshal(EventdConfiguration.class, stream);
 
     }
-    
+
     protected Lock getReadLock() {
         return m_lock.updateLock();
     }
@@ -110,7 +110,7 @@ public class EventdConfigManager {
             getReadLock().unlock();
         }
     }
-    
+
     /**
      * Return the port on which eventd listens for TCP connections.
      *

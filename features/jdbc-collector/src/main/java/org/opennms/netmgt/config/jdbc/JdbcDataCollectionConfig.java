@@ -48,15 +48,15 @@ public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDa
     private static final long serialVersionUID = -2166515301791756665L;
 
     private static final JdbcDataCollection[] OF_DATA_COLLECTIONS = new JdbcDataCollection[0];
-    
+
     @XmlElement(name="jdbc-collection")
     private List<JdbcDataCollection> m_jdbcDataCollections = new ArrayList<JdbcDataCollection>();
-    
+
     @XmlAttribute(name="rrdRepository")
     private String m_rrdRepository;
-    
+
     public JdbcDataCollectionConfig() {
-        
+
     }
 
     @XmlTransient
@@ -67,24 +67,24 @@ public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDa
     public void setJdbcDataCollections(List<JdbcDataCollection> jdbcDataCollections) {
         m_jdbcDataCollections = jdbcDataCollections;
     }
-    
+
     @XmlTransient
     public String getRrdRepository() {
         return m_rrdRepository;
     }
-    
+
     public void setRrdRepository(String rrdRepository) {
         m_rrdRepository = rrdRepository;
     }
-    
+
     public void addDataCollection(JdbcDataCollection dataCollection) {
         m_jdbcDataCollections.add(dataCollection);
     }
-    
+
     public void removeDataCollection(JdbcDataCollection dataCollection) {
         m_jdbcDataCollections.remove(dataCollection);
     }
-    
+
     public void removeDataCollectionByName(String name) {
         for (Iterator<JdbcDataCollection> itr = m_jdbcDataCollections.iterator(); itr.hasNext(); ) {
             JdbcDataCollection dataCollection = itr.next();
@@ -94,17 +94,17 @@ public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDa
             }
         }
     }
-    
+
     public JdbcDataCollection getDataCollectionByName(String name) {
         for (JdbcDataCollection dataCol :  m_jdbcDataCollections) {
             if(dataCol.getName().equals(name)) {
                 return dataCol;
             }
         }
-        
+
         return null;
     }
-    
+
     public RrdRepository buildRrdRepository(String collectionName) {
         JdbcRrd rrd = getDataCollectionByName(collectionName).getJdbcRrd();
         RrdRepository repo = new RrdRepository();
@@ -114,13 +114,13 @@ public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDa
         repo.setHeartBeat((2 * rrd.getStep()));
         return repo;
     }
-    
+
     @Override
     public int compareTo(JdbcDataCollectionConfig obj) {
         return new CompareToBuilder()
-            .append(getRrdRepository(), obj.getRrdRepository())
-            .append(getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS), obj.getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS))
-            .toComparison();
+        .append(getRrdRepository(), obj.getRrdRepository())
+        .append(getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS), obj.getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS))
+        .toComparison();
     }
 
     @Override
@@ -137,9 +137,9 @@ public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDa
         if (obj instanceof JdbcDataCollectionConfig) {
             JdbcDataCollectionConfig other = (JdbcDataCollectionConfig) obj;
             return new EqualsBuilder()
-                .append(getRrdRepository(), other.getRrdRepository())
-                .append(getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS), other.getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS))
-                .isEquals();
+            .append(getRrdRepository(), other.getRrdRepository())
+            .append(getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS), other.getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS))
+            .isEquals();
         }
         return false;
     }

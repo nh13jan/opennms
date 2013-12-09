@@ -40,21 +40,21 @@ public class JdbcStatement implements Serializable, Comparable<JdbcStatement> {
 
     @XmlElement(name="queryString",required=true)
     private String m_jdbcQuery;
-    
+
     @XmlTransient
     public String getJdbcQuery() {
         return m_jdbcQuery;
     }
-    
+
     public void setJdbcQuery(String jdbcQuery) {
         m_jdbcQuery = jdbcQuery;
     }
-    
+
     @Override
     public int compareTo(JdbcStatement obj) {
         return new CompareToBuilder()
-            .append(getJdbcQuery(), obj.getJdbcQuery())
-            .toComparison();
+        .append(getJdbcQuery(), obj.getJdbcQuery())
+        .toComparison();
     }
 
     @Override
@@ -78,5 +78,5 @@ public class JdbcStatement implements Serializable, Comparable<JdbcStatement> {
         }
         return true;
     }
-    
+
 }

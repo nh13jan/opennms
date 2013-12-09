@@ -65,7 +65,7 @@ abstract public class RWSConfigManager implements RWSConfig {
      */
     public RWSConfigManager() {
     }
-    
+
     /**
      * <p>Constructor for RWSConfigManager.</p>
      *
@@ -81,7 +81,7 @@ abstract public class RWSConfigManager implements RWSConfig {
     public Lock getReadLock() {
         return m_lock.updateLock();
     }
-    
+
     public Lock getWriteLock() {
         return m_lock.writeLock();
     }
@@ -146,7 +146,7 @@ abstract public class RWSConfigManager implements RWSConfig {
         return null;
     }
 
-    
+
     /**
      * <p>getBaseUrl</p>
      *
@@ -161,7 +161,7 @@ abstract public class RWSConfigManager implements RWSConfig {
             getReadLock().unlock();
         }
     }
- 
+
     /**
      * <p>getStanbyUrls</p>
      *
@@ -198,7 +198,7 @@ abstract public class RWSConfigManager implements RWSConfig {
             getReadLock().unlock();
         }
     }
-    
+
     /**
      * <p>hasStandbyUrl</p>
      *
