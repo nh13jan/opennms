@@ -31,8 +31,6 @@ package org.opennms.netmgt.config;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.opennms.core.xml.AbstractJaxbConfigDao;
 import org.opennms.netmgt.config.poller.Interface;
@@ -43,26 +41,27 @@ import org.opennms.netmgt.config.poller.Time;
 import org.springframework.dao.DataAccessException;
 import org.springframework.util.Assert;
 
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
+
 /**
  * Represents a PollOutagesConfigManager
  *
  * @author brozow
  */
 abstract public class PollOutagesConfigManager extends AbstractJaxbConfigDao<Outages, Outages> implements PollOutagesConfig {
-    private final ReadWriteLock m_globalLock = new ReentrantReadWriteLock();
-    private final Lock m_readLock = m_globalLock.readLock();
-    private final Lock m_writeLock = m_globalLock.writeLock();
+    private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
     
     public PollOutagesConfigManager() {
         super(Outages.class, "poll outage configuration");
     }
 
     public Lock getReadLock() {
-        return m_readLock;
+        return m_lock.updateLock();
     }
     
     public Lock getWriteLock() {
-        return m_writeLock;
+        return m_lock.writeLock();
     }
 
     /** {@inheritDoc} */

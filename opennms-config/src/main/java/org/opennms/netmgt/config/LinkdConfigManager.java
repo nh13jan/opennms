@@ -40,15 +40,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.opennms.core.utils.ByteArrayComparator;
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.core.utils.IpListFromUrl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.opennms.netmgt.config.linkd.ExcludeRange;
 import org.opennms.netmgt.config.linkd.Filter;
 import org.opennms.netmgt.config.linkd.IncludeRange;
@@ -59,6 +54,11 @@ import org.opennms.netmgt.config.linkd.Vendor;
 import org.opennms.netmgt.config.linkd.Vlans;
 import org.opennms.netmgt.filter.FilterDaoFactory;
 import org.opennms.protocols.snmp.SnmpObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
 
 /**
  * <p>Abstract LinkdConfigManager class.</p>
@@ -68,9 +68,7 @@ import org.opennms.protocols.snmp.SnmpObjectId;
  */
 abstract public class LinkdConfigManager implements LinkdConfig {
     private static final Logger LOG = LoggerFactory.getLogger(LinkdConfigManager.class);
-    private final ReadWriteLock m_globalLock = new ReentrantReadWriteLock();
-    private final Lock m_readLock = m_globalLock.readLock();
-    private final Lock m_writeLock = m_globalLock.writeLock();
+    private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
     
 	public static final String DEFAULT_IP_ROUTE_CLASS_NAME = "org.opennms.netmgt.linkd.snmp.IpCidrRouteTable";
 
@@ -115,12 +113,12 @@ abstract public class LinkdConfigManager implements LinkdConfig {
 
     @Override
     public Lock getReadLock() {
-        return m_readLock;
+        return m_lock.updateLock();
     }
     
     @Override
     public Lock getWriteLock() {
-        return m_writeLock;
+        return m_lock.writeLock();
     }
 
     /**
@@ -128,8 +126,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      */
     @Override
     public boolean isAutoDiscoveryEnabled() {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             if (m_config.hasAutoDiscovery()) return m_config.getAutoDiscovery();
         } finally {
             getReadLock().unlock();
@@ -142,8 +140,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      */
     @Override
     public boolean isVlanDiscoveryEnabled() {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             if (m_config.hasEnableVlanDiscovery()) return m_config.getEnableVlanDiscovery();
         } finally {
             getReadLock().unlock();
@@ -170,10 +168,9 @@ abstract public class LinkdConfigManager implements LinkdConfig {
     @Override
     public boolean isInterfaceInPackage(final InetAddress iface, final org.opennms.netmgt.config.linkd.Package pkg) {
         boolean filterPassed = false;
+        getReadLock().lock();
     
         try {
-            getReadLock().lock();
-
             // get list of IPs in this package
             final List<InetAddress> ipList = m_pkgIpMap.get(pkg);
             if (ipList != null && ipList.size() > 0) {
@@ -201,9 +198,9 @@ abstract public class LinkdConfigManager implements LinkdConfig {
         boolean has_specific = false;
         boolean has_range_include = false;
         boolean has_range_exclude = false;
- 
+
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             byte[] addr = iface.getAddress();
     
             // if there are NO include ranges then treat act as if the user include
@@ -255,8 +252,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      */
     @Override
     public Enumeration<Package> enumeratePackage() {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             return getConfiguration().enumeratePackage();
         } finally {
             getReadLock().unlock();
@@ -270,8 +267,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      */
     @Override
     public LinkdConfiguration getConfiguration() {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             return m_config;
         } finally {
             getReadLock().unlock();
@@ -280,27 +277,26 @@ abstract public class LinkdConfigManager implements LinkdConfig {
 
 	/** {@inheritDoc} */
     @Override
-	public org.opennms.netmgt.config.linkd.Package getPackage(final String name) {
-	    try {
-	        getReadLock().lock();
+    public org.opennms.netmgt.config.linkd.Package getPackage(final String name) {
+        getReadLock().lock();
+        try {
             for (final org.opennms.netmgt.config.linkd.Package thisPackage : m_config.getPackageCollection()) {
                 final String n = thisPackage.getName();
                 if (n != null && n.equals(name)) {
                     return thisPackage;
                 }
             }
-	    } finally {
-	        getReadLock().unlock();
-	    }
+        } finally {
+            getReadLock().unlock();
+        }
         return null;
     }
     
     /** {@inheritDoc} */
     @Override
     public List<InetAddress> getIpList(final Package pkg) {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
-
             if (pkg == null) return null;
     
             final Filter filter = pkg.getFilter();
@@ -318,8 +314,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
     /** {@inheritDoc} */
     @Override
     public String getIpRouteClassName(final String sysoid) {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             for (final String oidMask : m_oidMask2IpRouteclassName.keySet()) {
                 if (sysoid.startsWith(oidMask)) {
                     return m_oidMask2IpRouteclassName.get(oidMask);
@@ -334,8 +330,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
     /** {@inheritDoc} */
     @Override
     public String getVlanClassName(final String sysoid) {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             for (final String oidMask : m_oidMask2VlanclassName.keySet()) {
                 if (sysoid.startsWith(oidMask)) {
                     return m_oidMask2VlanclassName.get(oidMask);
@@ -357,8 +353,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      */
     @Override
     public org.opennms.netmgt.config.linkd.Package getFirstPackageMatch(final InetAddress ipaddr) {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             for (final org.opennms.netmgt.config.linkd.Package pkg : m_config.getPackageCollection()) {
                 if (isInterfaceInPackage(ipaddr, pkg)) {
                     return pkg;
@@ -381,9 +377,9 @@ abstract public class LinkdConfigManager implements LinkdConfig {
     @Override
     public List<String> getAllPackageMatches(final InetAddress ipaddr) {
         final List<String> matchingPkgs = new ArrayList<String>();
+        getReadLock().lock();
         
         try {
-            getReadLock().lock();
             for (final org.opennms.netmgt.config.linkd.Package pkg : m_config.getPackageCollection()) {
                 final String pkgName = pkg.getName();
                 if (isInterfaceInPackage(ipaddr, pkg)) {
@@ -399,8 +395,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
     /** {@inheritDoc} */
     @Override
     public boolean hasClassName(final String sysoid) {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
             for (final String oidMask : m_oidMask2VlanclassName.keySet()) {
                 if (sysoid.startsWith(oidMask)) {
                     return true;
@@ -581,9 +577,9 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      * from the database.
      */
     protected void updatePackageIpListMap() {
-        m_pkgIpMap.clear();
+        getWriteLock().lock();
         try {
-            getWriteLock().lock();
+            m_pkgIpMap.clear();
             for (final org.opennms.netmgt.config.linkd.Package pkg : m_config.getPackageCollection()) {
                 //
                 // Get a list of IP addresses per package against the filter rules from
@@ -620,9 +616,9 @@ abstract public class LinkdConfigManager implements LinkdConfig {
     }
 
     protected void updateIpRouteClassNames() {
-        m_oidMask2IpRouteclassName.clear();
+        getWriteLock().lock();
         try {
-            getWriteLock().lock();
+            m_oidMask2IpRouteclassName.clear();
             final Iproutes iproutes = m_config.getIproutes();
             if (iproutes == null) {
                 LOG.info("no iproutes found in config");
@@ -645,10 +641,10 @@ abstract public class LinkdConfigManager implements LinkdConfig {
         }
     }
 
-	protected void updateVlanClassNames() {
-	    m_oidMask2VlanclassName.clear();
-	    try {
-	        getWriteLock().lock();
+    protected void updateVlanClassNames() {
+        getWriteLock().lock();
+        try {
+            m_oidMask2VlanclassName.clear();
     		final Vlans vlans = m_config.getVlans();
     		if (vlans == null) {
     		    LOG.info("initializeVlanClassNames: no vlans found in config");
@@ -713,8 +709,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
 
     
 	private SnmpObjectId getRootOid(final SnmpObjectId snmpObj) {
-        try {
             getReadLock().lock();
+        try {
     	    final int[] identifiers = snmpObj.getIdentifiers();
     		final int[] rootIdentifiers = new int[identifiers.length - 1];
     		for (int i = 0; i < identifiers.length - 1; i++) {
@@ -755,9 +751,8 @@ abstract public class LinkdConfigManager implements LinkdConfig {
      * @return True if the interface is included in the URL, false otherwise.
      */
     private boolean isInterfaceInUrl(final InetAddress addr, final String url) {
+        getReadLock().lock();
         try {
-            getReadLock().lock();
-
             // get list of IPs in this URL
             final List<String> iplist = m_urlIPMap.get(url);
             if (iplist != null && iplist.size() > 0) {

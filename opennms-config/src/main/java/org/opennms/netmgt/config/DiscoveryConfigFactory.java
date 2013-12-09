@@ -46,8 +46,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.io.IOUtils;
 import org.exolab.castor.xml.MarshalException;
@@ -69,6 +67,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.FileSystemResource;
 
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
+
 /**
  * This is the singleton class used to load the configuration for the OpenNMS
  * Discovery service from the discovery-configuration xml file.
@@ -81,9 +82,7 @@ import org.springframework.core.io.FileSystemResource;
  */
 public class DiscoveryConfigFactory {
     private static final Logger LOG = LoggerFactory.getLogger(DiscoveryConfigFactory.class);
-    private final ReadWriteLock m_globalLock = new ReentrantReadWriteLock();
-    private final Lock m_readLock = m_globalLock.readLock();
-    private final Lock m_writeLock = m_globalLock.writeLock();
+    private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
     
     public static final String COMMENT_STR = "#";
     public static final char COMMENT_CHAR = '#';
@@ -126,11 +125,11 @@ public class DiscoveryConfigFactory {
     }
 
     public Lock getReadLock() {
-        return m_readLock;
+        return m_lock.updateLock();
     }
     
     public Lock getWriteLock() {
-        return m_writeLock;
+        return m_lock.writeLock();
     }
 
     /**

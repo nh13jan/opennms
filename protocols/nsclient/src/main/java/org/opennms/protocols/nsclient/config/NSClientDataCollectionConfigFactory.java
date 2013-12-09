@@ -46,8 +46,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.io.IOUtils;
 import org.exolab.castor.xml.MarshalException;
@@ -60,18 +58,17 @@ import org.opennms.netmgt.model.RrdRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.googlecode.concurentlocks.ReadWriteUpdateLock;
+import com.googlecode.concurentlocks.ReentrantReadWriteUpdateLock;
+
 /**
  * <p>NSClientDataCollectionConfigFactory class.</p>
  *
  * @author <a href="mailto:cmiskell@opennms.org">Craig Miskell</a>
  */
 public class NSClientDataCollectionConfigFactory {
-	
-	private static final Logger LOG = LoggerFactory.getLogger(NSClientDataCollectionConfigFactory.class);
-
-    private final ReadWriteLock m_globalLock = new ReentrantReadWriteLock();
-    private final Lock m_readLock = m_globalLock.readLock();
-    private final Lock m_writeLock = m_globalLock.writeLock();
+    private static final Logger LOG = LoggerFactory.getLogger(NSClientDataCollectionConfigFactory.class);
+    private final ReadWriteUpdateLock m_lock = new ReentrantReadWriteUpdateLock();
     
      /** The singleton instance. */
      private static NSClientDataCollectionConfigFactory m_instance;
@@ -103,11 +100,11 @@ public class NSClientDataCollectionConfigFactory {
      }
 
      public Lock getReadLock() {
-         return m_readLock;
+         return m_lock.updateLock();
      }
      
      public Lock getWriteLock() {
-         return m_writeLock;
+         return m_lock.writeLock();
      }
 
      private void initialize(final InputStream stream) throws MarshalException, ValidationException {
@@ -177,8 +174,8 @@ public class NSClientDataCollectionConfigFactory {
       * @return a {@link org.opennms.netmgt.config.nsclient.NsclientCollection} object.
       */
      public NsclientCollection getNSClientCollection(final String collectionName) {
+         getReadLock().lock();
          try {
-             getReadLock().lock();
              NsclientCollection collection = null;
              for (final NsclientCollection coll : m_config.getNsclientCollection()) {
                  if (coll.getName().equalsIgnoreCase(collectionName)) {
@@ -203,8 +200,8 @@ public class NSClientDataCollectionConfigFactory {
       * @return a {@link org.opennms.netmgt.model.RrdRepository} object.
       */
      public RrdRepository getRrdRepository(final String collectionName) {
+         getReadLock().lock();
          try {
-             getReadLock().lock();
              final RrdRepository repo = new RrdRepository();
              repo.setRrdBaseDir(new File(getRrdPath()));
              repo.setRraList(getRRAList(collectionName));
@@ -223,8 +220,8 @@ public class NSClientDataCollectionConfigFactory {
       * @return a int.
       */
      public int getStep(final String cName) {
+         getReadLock().lock();
          try {
-             getReadLock().lock();
              final NsclientCollection collection = getNSClientCollection(cName);
              if (collection != null) {
                  return collection.getRrd().getStep();
@@ -243,8 +240,8 @@ public class NSClientDataCollectionConfigFactory {
       * @return a {@link java.util.List} object.
       */
      public List<String> getRRAList(final String cName) {
+         getReadLock().lock();
          try {
-             getReadLock().lock();
              final NsclientCollection collection = getNSClientCollection(cName);
              if (collection != null) {
                  return collection.getRrd().getRraCollection();
@@ -262,8 +259,8 @@ public class NSClientDataCollectionConfigFactory {
       * @return a {@link java.lang.String} object.
       */
      public String getRrdPath() {
+         getReadLock().lock();
          try {
-             getReadLock().lock();
              String rrdPath = m_config.getRrdRepository();
              if (rrdPath == null) {
                  throw new RuntimeException("Configuration error, failed to retrieve path to RRD repository.");
@@ -293,8 +290,8 @@ public class NSClientDataCollectionConfigFactory {
       */
      protected void updateFromFile() throws IOException, MarshalException, ValidationException {
          if (m_loadedFromFile) {
+             getWriteLock().lock();
              try {
-                 getWriteLock().lock();
                  File surveillanceViewsFile = ConfigFileConstants.getFile(ConfigFileConstants.NSCLIENT_COLLECTION_CONFIG_FILE_NAME);
                  if (m_lastModified != surveillanceViewsFile.lastModified()) {
                      this.reload();
