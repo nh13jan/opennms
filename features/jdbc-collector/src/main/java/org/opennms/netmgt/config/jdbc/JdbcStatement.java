@@ -34,12 +34,10 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
-import org.apache.commons.lang.builder.EqualsBuilder;
 
 public class JdbcStatement implements Serializable, Comparable<JdbcStatement> {
+    private static final long serialVersionUID = 4181652665754428456L;
 
-    private static final long serialVersionUID = 883422287764280313L;
-    
     @XmlElement(name="queryString",required=true)
     private String m_jdbcQuery;
     
@@ -58,15 +56,27 @@ public class JdbcStatement implements Serializable, Comparable<JdbcStatement> {
             .append(getJdbcQuery(), obj.getJdbcQuery())
             .toComparison();
     }
-    
+
     @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof JdbcStatement) {
-            JdbcStatement other = (JdbcStatement) obj;
-            return new EqualsBuilder()
-                .append(getJdbcQuery(), other.getJdbcQuery())
-                .isEquals();
-        }
-        return false;
+    public int hashCode() {
+        final int prime = 61;
+        int result = 1;
+        result = prime * result + ((m_jdbcQuery == null) ? 0 : m_jdbcQuery.hashCode());
+        return result;
     }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (!(obj instanceof JdbcStatement)) return false;
+        final JdbcStatement other = (JdbcStatement) obj;
+        if (m_jdbcQuery == null) {
+            if (other.m_jdbcQuery != null) return false;
+        } else if (!m_jdbcQuery.equals(other.m_jdbcQuery)) {
+            return false;
+        }
+        return true;
+    }
+    
 }

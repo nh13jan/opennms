@@ -45,7 +45,7 @@ import org.opennms.netmgt.model.RrdRepository;
 
 @XmlRootElement(name="jdbc-datacollection-config")
 public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDataCollectionConfig> {
-    private static final long serialVersionUID = -7884808717236892997L;
+    private static final long serialVersionUID = -2166515301791756665L;
 
     private static final JdbcDataCollection[] OF_DATA_COLLECTIONS = new JdbcDataCollection[0];
     
@@ -122,7 +122,16 @@ public class JdbcDataCollectionConfig implements Serializable, Comparable<JdbcDa
             .append(getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS), obj.getJdbcDataCollections().toArray(OF_DATA_COLLECTIONS))
             .toComparison();
     }
-    
+
+    @Override
+    public int hashCode() {
+        final int prime = 337;
+        int result = 1;
+        result = prime * result + ((m_jdbcDataCollections == null) ? 0 : m_jdbcDataCollections.hashCode());
+        result = prime * result + ((m_rrdRepository == null) ? 0 : m_rrdRepository.hashCode());
+        return result;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof JdbcDataCollectionConfig) {

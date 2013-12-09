@@ -37,6 +37,7 @@ import javax.xml.bind.annotation.XmlTransient;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
 import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
  * The Class TcaDataCollectionConfig.
@@ -45,11 +46,9 @@ import org.apache.commons.lang.builder.EqualsBuilder;
  */
 @XmlRootElement(name="tca-collection")
 public class TcaDataCollection implements Serializable, Comparable<TcaDataCollection> {
+    private static final long serialVersionUID = 4496398963298248177L;
 
-	/** The Constant serialVersionUID. */
-	private static final long serialVersionUID = 4105044141350925553L;
-
-	/** The Collection name. */
+    /** The Collection name. */
 	@XmlAttribute(name="name", required=true)
 	private String m_name;
 
@@ -126,5 +125,13 @@ public class TcaDataCollection implements Serializable, Comparable<TcaDataCollec
 			.isEquals();
 		}
 		return false;
+	}
+
+	@Override
+	public int hashCode() {
+	    return new HashCodeBuilder()
+	        .append(getName())
+	        .append(getRrd())
+	        .toHashCode();
 	}
 }

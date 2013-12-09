@@ -35,12 +35,10 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
-import org.apache.commons.lang.builder.EqualsBuilder;
 
 @XmlRootElement(name="column")
 public class JdbcColumn implements Serializable, Comparable<JdbcColumn> {
-
-    private static final long serialVersionUID = 2519632811400677757L;
+    private static final long serialVersionUID = -2982266671178613278L;
 
     @XmlAttribute(name="name", required=true)
     private String m_columnName;
@@ -100,18 +98,45 @@ public class JdbcColumn implements Serializable, Comparable<JdbcColumn> {
             .append(getAlias(), obj.getAlias())
             .toComparison();
     }
-    
+
     @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof JdbcColumn) {
-            JdbcColumn other = (JdbcColumn) obj;
-            return new EqualsBuilder()
-                .append(getColumnName(), other.getColumnName())
-                .append(getDataSourceName(), other.getDataSourceName())
-                .append(getDataType(), other.getDataType())
-                .append(getAlias(), other.getAlias())
-                .isEquals();
-        }
-        return false;
+    public int hashCode() {
+        final int prime = 883;
+        int result = 1;
+        result = prime * result + ((m_alias == null) ? 0 : m_alias.hashCode());
+        result = prime * result + ((m_columnName == null) ? 0 : m_columnName.hashCode());
+        result = prime * result + ((m_dataSourceName == null) ? 0 : m_dataSourceName.hashCode());
+        result = prime * result + ((m_dataType == null) ? 0 : m_dataType.hashCode());
+        return result;
     }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (!(obj instanceof JdbcColumn)) return false;
+        final JdbcColumn other = (JdbcColumn) obj;
+        if (m_alias == null) {
+            if (other.m_alias != null) return false;
+        } else if (!m_alias.equals(other.m_alias)) {
+            return false;
+        }
+        if (m_columnName == null) {
+            if (other.m_columnName != null) return false;
+        } else if (!m_columnName.equals(other.m_columnName)) {
+            return false;
+        }
+        if (m_dataSourceName == null) {
+            if (other.m_dataSourceName != null) return false;
+        } else if (!m_dataSourceName.equals(other.m_dataSourceName)) {
+            return false;
+        }
+        if (m_dataType == null) {
+            if (other.m_dataType != null) return false;
+        } else if (!m_dataType.equals(other.m_dataType)) {
+            return false;
+        }
+        return true;
+    }
+    
 }

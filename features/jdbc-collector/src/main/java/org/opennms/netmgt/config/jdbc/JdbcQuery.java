@@ -42,8 +42,7 @@ import org.apache.commons.lang.builder.CompareToBuilder;
 import org.apache.commons.lang.builder.EqualsBuilder;
 
 public class JdbcQuery implements Serializable, Comparable<JdbcQuery> {
-    
-    private static final long serialVersionUID = -9083835215058208854L;
+    private static final long serialVersionUID = 1459470697160952149L;
 
     private static final JdbcColumn[] OF_JDBC_COLUMNS = new JdbcColumn[0];
     
@@ -161,11 +160,25 @@ public class JdbcQuery implements Serializable, Comparable<JdbcQuery> {
             .append(getIfType(), obj.getIfType())
             .toComparison();
     }
-    
+
     @Override
-    public boolean equals(Object obj) {
+    public int hashCode() {
+        final int prime = 1637;
+        int result = 1;
+        result = prime * result + ((m_ifType == null) ? 0 : m_ifType.hashCode());
+        result = prime * result + ((m_instanceColumn == null) ? 0 : m_instanceColumn.hashCode());
+        result = prime * result + ((m_jdbcColumns == null) ? 0 : m_jdbcColumns.hashCode());
+        result = prime * result + ((m_jdbcStatement == null) ? 0 : m_jdbcStatement.hashCode());
+        result = prime * result + ((m_queryName == null) ? 0 : m_queryName.hashCode());
+        result = prime * result + m_recheckInterval;
+        result = prime * result + ((m_resourceType == null) ? 0 : m_resourceType.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
         if (obj instanceof JdbcQuery) {
-            JdbcQuery other = (JdbcQuery) obj;
+            final JdbcQuery other = (JdbcQuery) obj;
             return new EqualsBuilder()
                 .append(getQueryName(), other.getQueryName())
                 .append(getJdbcStatement(), other.getJdbcStatement())

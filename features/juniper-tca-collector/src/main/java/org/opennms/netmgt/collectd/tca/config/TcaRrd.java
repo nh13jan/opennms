@@ -38,6 +38,7 @@ import javax.xml.bind.annotation.XmlTransient;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
 import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
  * The Class TcaRrd.
@@ -46,11 +47,9 @@ import org.apache.commons.lang.builder.EqualsBuilder;
  */
 @XmlRootElement(name="rrd")
 public class TcaRrd implements Serializable, Comparable<TcaRrd> {
+    private static final long serialVersionUID = -251598994994790403L;
 
-	/** The Constant serialVersionUID. */
-	private static final long serialVersionUID = 439792690711379417L;
-
-	/** The collection step is a fixed constant for the TCA Collector. */
+    /** The collection step is a fixed constant for the TCA Collector. */
 	private Integer m_step = 1;
 
 	/** The XML RRAs list. */
@@ -135,5 +134,13 @@ public class TcaRrd implements Serializable, Comparable<TcaRrd> {
 			.isEquals();
 		}
 		return false;
+	}
+	
+	@Override
+	public int hashCode() {
+	    return new HashCodeBuilder()
+        	.append(getStep())
+        	.append(getRras())
+	        .toHashCode();
 	}
 }

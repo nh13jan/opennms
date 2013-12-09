@@ -44,8 +44,8 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 
 @XmlType(name="jdbc-collection")
 public class JdbcDataCollection implements Serializable, Comparable<JdbcDataCollection> {
-    private static final long serialVersionUID = -7451959128852991463L;
-    
+    private static final long serialVersionUID = -271115070618019010L;
+
     private static final JdbcQuery[] OF_QUERIES = new JdbcQuery[0];
     
     @XmlAttribute(name="name")
@@ -115,11 +115,21 @@ public class JdbcDataCollection implements Serializable, Comparable<JdbcDataColl
             .append(getQueries().toArray(OF_QUERIES), obj.getQueries().toArray(OF_QUERIES))
             .toComparison();
     }
-    
+
     @Override
-    public boolean equals(Object obj) {
+    public int hashCode() {
+        final int prime = 503;
+        int result = 1;
+        result = prime * result + ((m_jdbcQueries == null) ? 0 : m_jdbcQueries.hashCode());
+        result = prime * result + ((m_jdbcRrd == null) ? 0 : m_jdbcRrd.hashCode());
+        result = prime * result + ((m_name == null) ? 0 : m_name.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
         if (obj instanceof JdbcDataCollection) {
-            JdbcDataCollection other = (JdbcDataCollection) obj;
+            final JdbcDataCollection other = (JdbcDataCollection) obj;
             return new EqualsBuilder()
                 .append(getName(), other.getName())
                 .append(getJdbcRrd(), other.getJdbcRrd())
@@ -128,5 +138,4 @@ public class JdbcDataCollection implements Serializable, Comparable<JdbcDataColl
         }
         return false;
     }
-    
 }

@@ -38,13 +38,11 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
-import org.apache.commons.lang.builder.EqualsBuilder;
 
 @XmlRootElement(name="rrd")
 public class JdbcRrd implements Serializable, Comparable<JdbcRrd> {
+    private static final long serialVersionUID = 244355070292458773L;
 
-    private static final long serialVersionUID = 143526958273169546L;
-    
     @XmlAttribute(name="step")
     private Integer m_step;
     
@@ -88,16 +86,33 @@ public class JdbcRrd implements Serializable, Comparable<JdbcRrd> {
             .append(getJdbcRras().toArray(), obj.getJdbcRras().toArray())
             .toComparison();
     }
-    
+
     @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof JdbcRrd) {
-            JdbcRrd other = (JdbcRrd) obj;
-            return new EqualsBuilder()
-                .append(getStep(), other.getStep())
-                .append(getJdbcRras().toArray(), other.getJdbcRras().toArray())
-                .isEquals();
-        }
-        return false;
+    public int hashCode() {
+        final int prime = 2053;
+        int result = 1;
+        result = prime * result + ((m_jdbcRras == null) ? 0 : m_jdbcRras.hashCode());
+        result = prime * result + ((m_step == null) ? 0 : m_step.hashCode());
+        return result;
     }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (!(obj instanceof JdbcRrd)) return false;
+        final JdbcRrd other = (JdbcRrd) obj;
+        if (m_jdbcRras == null) {
+            if (other.m_jdbcRras != null) return false;
+        } else if (!m_jdbcRras.equals(other.m_jdbcRras)) {
+            return false;
+        }
+        if (m_step == null) {
+            if (other.m_step != null) return false;
+        } else if (!m_step.equals(other.m_step)) {
+            return false;
+        }
+        return true;
+    }
+    
 }
