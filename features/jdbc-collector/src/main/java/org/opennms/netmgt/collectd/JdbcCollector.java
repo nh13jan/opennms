@@ -28,10 +28,7 @@
 
 package org.opennms.netmgt.collectd;
 
-import java.beans.PropertyVetoException;
 import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.UndeclaredThrowableException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -41,14 +38,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.exolab.castor.xml.MarshalException;
-import org.exolab.castor.xml.ValidationException;
 import org.opennms.core.db.DataSourceFactory;
 import org.opennms.core.utils.BeanUtils;
 import org.opennms.core.utils.ParameterMap;
-import org.opennms.netmgt.collectd.CollectionAgent;
-import org.opennms.netmgt.collectd.CollectionException;
-import org.opennms.netmgt.collectd.ServiceCollector;
 import org.opennms.netmgt.collectd.jdbc.JdbcAgentState;
 import org.opennms.netmgt.collectd.jdbc.JdbcCollectionAttributeType;
 import org.opennms.netmgt.collectd.jdbc.JdbcCollectionResource;
@@ -109,7 +101,6 @@ public class JdbcCollector implements ServiceCollector {
         m_scheduledNodes.clear();
         
         initializeRrdDirs();
-        initDatabaseConnectionFactory();
     }
     
     private void initializeRrdDirs() {
@@ -126,52 +117,8 @@ public class JdbcCollector implements ServiceCollector {
         }
     }
 
-    private void initDatabaseConnectionFactory() {
-        try {            
-            DataSourceFactory.init();
-        } catch (IOException e) {
-            LOG.error("initDatabaseConnectionFactory: IOException getting database connection", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (MarshalException e) {
-            LOG.error("initDatabaseConnectionFactory: Marshall Exception getting database connection", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (ValidationException e) {
-            LOG.error("initDatabaseConnectionFactory: Validation Exception getting database connection", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (SQLException e) {
-            LOG.error("initDatabaseConnectionFactory: Failed getting connection to the database.", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (PropertyVetoException e) {
-            LOG.error("initDatabaseConnectionFactory: Failed getting connection to the database.", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (ClassNotFoundException e) {
-            LOG.error("initDatabaseConnectionFactory: Failed loading database driver.", e);
-            throw new UndeclaredThrowableException(e);
-        }
-    }
-    
     private void initDatabaseConnectionFactory(String dataSourceName) {
-        try {            
-            DataSourceFactory.init(dataSourceName);
-        } catch (IOException e) {
-            LOG.error("initDatabaseConnectionFactory: IOException getting database connection", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (MarshalException e) {
-            LOG.error("initDatabaseConnectionFactory: Marshall Exception getting database connection", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (ValidationException e) {
-            LOG.error("initDatabaseConnectionFactory: Validation Exception getting database connection", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (SQLException e) {
-            LOG.error("initDatabaseConnectionFactory: Failed getting connection to the database.", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (PropertyVetoException e) {
-            LOG.error("initDatabaseConnectionFactory: Failed getting connection to the database.", e);
-            throw new UndeclaredThrowableException(e);
-        } catch (ClassNotFoundException e) {
-            LOG.error("initDatabaseConnectionFactory: Failed loading database driver.", e);
-            throw new UndeclaredThrowableException(e);
-        }
+        DataSourceFactory.init(dataSourceName);
     }
 
     @Override

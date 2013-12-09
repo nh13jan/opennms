@@ -28,26 +28,18 @@
 package org.opennms.features.vaadin.dashboard.dashlets;
 
 import com.vaadin.server.ExternalResource;
-import com.vaadin.ui.Alignment;
 import com.vaadin.ui.BrowserFrame;
+import com.vaadin.ui.Component;
 import com.vaadin.ui.VerticalLayout;
-import org.opennms.features.vaadin.dashboard.model.Dashlet;
-import org.opennms.features.vaadin.dashboard.model.DashletSpec;
+import org.opennms.features.vaadin.dashboard.model.*;
 
 /**
  * This class implements a {@link Dashlet} for displaying the surveillance view page of OpenNMS.
  *
  * @author Christian Pape
  */
-public class SurveillanceDashlet extends VerticalLayout implements Dashlet {
-    /**
-     * the dashlet's name
-     */
-    private String m_name;
-    /**
-     * The {@link DashletSpec} for this instance
-     */
-    private DashletSpec m_dashletSpec;
+public class SurveillanceDashlet extends AbstractDashlet {
+    private DashletComponent m_dashletComponent;
 
     /**
      * Constructor for instantiating new objects.
@@ -55,50 +47,51 @@ public class SurveillanceDashlet extends VerticalLayout implements Dashlet {
      * @param dashletSpec the {@link DashletSpec} to be used
      */
     public SurveillanceDashlet(String name, DashletSpec dashletSpec) {
-        /**
-         * Setting the member fields
-         */
-        m_name = name;
-        m_dashletSpec = dashletSpec;
+        super(name, dashletSpec);
+    }
 
-        /**
-         * Setting up the layout
-         */
-        setCaption(getName());
-        setSizeFull();
+    @Override
+    public DashletComponent getWallboardComponent() {
+        if (m_dashletComponent == null) {
+            m_dashletComponent = new AbstractDashletComponent() {
+                private VerticalLayout m_verticalLayout = new VerticalLayout();
 
-        String viewName = "default";
+                {
+                    m_verticalLayout.setCaption(getName());
+                    m_verticalLayout.setSizeFull();
+                }
 
-        if (m_dashletSpec.getParameters().containsKey("viewName")) {
-            viewName = m_dashletSpec.getParameters().get("viewName");
+                @Override
+                public void refresh() {
+                    m_verticalLayout.removeAllComponents();
+
+                    String viewName = "default";
+
+                    if (getDashletSpec().getParameters().containsKey("viewName")) {
+                        viewName = getDashletSpec().getParameters().get("viewName");
+                    }
+
+                    /**
+                     * creating browser frame to display node-maps
+                     */
+                    BrowserFrame browserFrame = new BrowserFrame(null, new ExternalResource("/opennms/surveillanceView.htm?quiet=true&viewName=" + viewName));
+                    browserFrame.setSizeFull();
+
+                    m_verticalLayout.addComponent(browserFrame);
+                }
+
+                @Override
+                public Component getComponent() {
+                    return m_verticalLayout;
+                }
+            };
         }
 
-        /**
-         * creating browser frame to display node-maps
-         */
-        BrowserFrame browserFrame = new BrowserFrame(null, new ExternalResource("/opennms/surveillanceView.htm?quiet=true&viewName=" + viewName));
-        browserFrame.setSizeFull();
-
-        addComponent(browserFrame);
+        return m_dashletComponent;
     }
 
     @Override
-    public String getName() {
-        return m_name;
-    }
-
-    @Override
-    public boolean isBoosted() {
-        return false;
-    }
-
-    /**
-     * Updates the dashlet contents and computes new boosted state
-     */
-    @Override
-    public void update() {
-        /**
-         * do nothing
-         */
+    public DashletComponent getDashboardComponent() {
+        return getWallboardComponent();
     }
 }
